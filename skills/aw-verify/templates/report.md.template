@@ -1,0 +1,43 @@
+## {{VERDICT_EMOJI}} {{VERDICT_WORDS}} — {{HEADLINE}}
+
+{{SUMMARY}} {{ATTENTION}}
+
+{{ATTENTION_PART}}
+
+<sub>`{{HEAD_SHA7}}` · {{ENV}} · {{CI_STATE}} · {{FINDING_COUNT}} · updated {{UPDATED}}</sub>
+
+#### What I checked
+
+{{MEDIA_STRIP}}
+
+{{CHECK_ROWS}}
+
+{{SKIPPED_LINE}}
+
+<details><summary>Details</summary>
+
+**How I tested it.** {{APPROACH}}
+
+{{IMPACT_MAP}}
+
+**Tried to break it** · {{PROBE_RESULT}}
+{{PROBE_LINES}}
+
+{{FIXES_PART}}
+
+**Telemetry** · {{TELEMETRY_VERDICT}}
+{{FLOW_LINES}}
+
+{{NOTES_PART}}
+
+**Run details**
+
+| ID | Criterion | Result | Witness |
+| --- | --- | --- | --- |
+{{TRACE_ROWS}}
+
+{{ENV}} {{URL}} · driver {{DRIVER}} {{TICKET_LINK}}
+{{RECORDINGS_LINE}}
+Re-run: `/aw-verify run {{ENV}} {{PR_LINK}}`
+
+</details>

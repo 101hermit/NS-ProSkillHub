@@ -1,0 +1,156 @@
+---
+title: Agent0 runtime — running ui-verify inside a Dash0 Agent0 Automation
+impact: HIGH
+tags:
+  - ui-verify
+  - agent0
+  - automation
+  - playwright
+---
+
+# Agent0 runtime
+
+On a Dash0 Agent0 Automation sandbox, `ui-verify` hits three obstacles at once: `aw-tester` is a custom agent type the host cannot dispatch (a measured host fact), and an automation has no Chrome extension and no user to answer a question (properties of any automation).
+This rule makes `author`, `run`, and `verify` work there anyway.
+It changes no spec grammar, no verdict mapping, and no resolution rule.
+
+Detection, the generic substitutions, and the setup script are owned by [`agents/shared/rules/agent0-host.md`](../../../../agents/shared/rules/agent0-host.md) and are not restated here.
+Agent0 mode is on iff `/tmp/workspace/agent-skills/env.sh` exists; source it at the start of every Bash call.
+Rationale for the on-demand browser install below — the two-stage design, the time budget, the Chrome-for-Testing fallback, and the consent reasoning — lives in [`../references/agent0-browser-install.md`](../references/agent0-browser-install.md).
+
+## Contents
+
+- [Work from a checkout of the PR head](#work-from-a-checkout-of-the-pr-head)
+- [Driver selection: Playwright, without the prompt](#driver-selection-playwright-without-the-prompt)
+- [The browser precondition](#the-browser-precondition)
+- [Dispatch `aw-tester` as a `general` sub-agent](#dispatch-aw-tester-as-a-general-sub-agent)
+- [Dispatch the adversarial pass](#dispatch-the-adversarial-pass)
+- [The out-of-bounds brainstorm dispatches from `author`](#the-out-of-bounds-brainstorm-dispatches-from-author)
+- [Preview auth comes from the automation's secrets](#preview-auth-comes-from-the-automations-secrets)
+
+---
+
+## Work from a checkout of the PR head
+
+`author` reads the diff, and `run` reads the committed `.agents/aw/` config and writes `.agent/{branch}/…` scratch — all relative to a checkout.
+When the working directory is not a checkout of the PR's repository at its head, make one before Step 0:
+
+```bash
+. /tmp/workspace/agent-skills/env.sh
+D=/tmp/workspace/ui-verify/<repo>
+[ -d "$D/.git" ] || gh repo clone <owner>/<repo> "$D" -- --filter=blob:none -q
+cd "$D" && gh pr checkout <n> -f
+```
+
+Everything below runs from that directory.
+A clone that fails is `inconclusive: no checkout of <owner>/<repo> (<error>)` — never a spec run against the wrong tree.
+
+## Driver selection: Playwright, without the prompt
+
+| `--driver` | Agent0 outcome |
+| --- | --- |
+| `auto` (default) | **`playwright`, with no `AskUserQuestion`.** Skip the Chrome probe entirely: Playwright is the only driver on an Agent0 host — provided by the setup script or by [the on-demand install](../SKILL.md#on-demand-browser-install--run-and-verify) — so `auto`'s Chrome-first step in [`runner.md § Step 4`](./runner.md#step-4-select-the-driver-and-run) can only fall through, and the fallback notice there is optional here |
+| `playwright` | `playwright` |
+| `chrome` | `NOT RUN (chrome driver unavailable on this host — no browser extension)`. A forced driver is never substituted |
+
+`ui-verify` asks no question on this host.
+Agent0 mode implies the general `--unattended` flag (`SKILL.md § --unattended`) whether or not the caller passed it.
+
+## The browser precondition
+
+The setup script, or — when the sandbox skipped it or has none — [`SKILL.md`'s own on-demand browser install](../SKILL.md#on-demand-browser-install--run-and-verify), installs and smoke-tests Chromium and records the outcome in `UI_VERIFY_BROWSER`.
+This precondition runs **after** that on-demand block, so any top-up it just performed is already reflected here.
+Check it before dispatching:
+
+```bash
+. /tmp/workspace/agent-skills/env.sh
+[ "$UI_VERIFY_BROWSER" = ok ] || echo "NOT RUN (playwright browser unavailable in this sandbox: $UI_VERIFY_BROWSER_REASON)"
+```
+
+Anything but `ok` stops the run with that line.
+It is `NOT RUN`, never `red`: no driver executed, so there is no verdict to be red about — the same class as the existing driver-unavailable returns, and `review-loop` Step 1.6 already maps it.
+
+Then link the installed modules into `aw-tester`'s run directory, so its [Playwright resolution](../../../workflow/autonomous-workflow/templates/aw-tester.agent.md#pinned-playwright-resolution-replaces-npx---yes-playwrightlatest) takes rung 2 (branch-local) and never downloads at run time:
+
+```bash
+. /tmp/workspace/agent-skills/env.sh
+cd /tmp/workspace/ui-verify/<repo>   # or the checkout you started in; shell state does not persist
+AW_DIR=".agent/$(git branch --show-current)/.aw-tester"
+mkdir -p "$AW_DIR"
+[ -x node_modules/.bin/playwright ] || ln -sfn "$UI_VERIFY_PLAYWRIGHT_NODE_MODULES" "$AW_DIR/node_modules"
+```
+
+The link carries both the `playwright` binary and the `@playwright/test` package the generated spec imports.
+A project that has its own Playwright installed keeps rung 1, as it would anywhere else.
+`PLAYWRIGHT_BROWSERS_PATH` from `env.sh` makes `aw-tester`'s idempotent `install chromium` a no-op.
+
+## Dispatch `aw-tester` as a `general` sub-agent
+
+In place of the `Task(subagent_type: "aw-tester", …)` block in [`runner.md § Step 4`](./runner.md#step-4-select-the-driver-and-run):
+
+```text
+<dispatch>(
+  subagent_type: "general",
+  description: "Run ui-verify against PR preview",
+  prompt: |
+    Run the specs at .agent/{branch}/.ui-verify/specs.md against aw-target "preview".
+    Your procedure is /tmp/workspace/pr-reviewer/skills/autonomous-workflow/templates/aw-tester.agent.md — read it and follow it.
+    Run `. /tmp/workspace/agent-skills/env.sh` at the start of every Bash call.
+    Work in <the checkout directory>.
+    Aw-Target file: .agent/{branch}/aw-target.preview.yml
+    Specs file: .agent/{branch}/.ui-verify/specs.md
+    Mode: --all --auto-capture --record-video
+)
+```
+
+The input lines are the `runner.md` block's, unchanged, so the verdict shape is identical.
+Drop `--auto-capture` under `--no-screenshots` and `--record-video` under `--no-recording`, exactly as there.
+The sub-agent is one level deep and dispatches nothing; `aw-tester` never does.
+
+A reply that opens with a refusal or a `BLOCKED` line is `inconclusive: aw-tester refused (<first line>)`, never a verdict.
+
+## Dispatch the adversarial pass
+
+In place of the `Task(subagent_type: "general-purpose", …)` block in [`runner.md § Step 4b`](./runner.md#step-4b-adversarial-pass--try-to-break-it), after the `aw-tester` dispatch above has returned:
+
+```text
+<dispatch>(
+  subagent_type: "general",
+  description: "ui-verify adversarial pass against PR preview",
+  prompt: |
+    Try to break the change these specs describe on the live preview, and document every probe with screenshots.
+    Your procedure is /tmp/workspace/pr-reviewer/skills/ui-verify/rules/adversarial.md — read it and follow it.
+    Run `. /tmp/workspace/agent-skills/env.sh` at the start of every Bash call.
+    Work in <the checkout directory>.
+    Aw-Target file: .agent/{branch}/aw-target.preview.yml
+    Specs file: .agent/{branch}/.ui-verify/specs.md
+    Probe specs: <ids of the specs whose result was pass>
+    Playwright bin: .agent/{branch}/.aw-tester/playwright-bin
+    Output dir: .agent/{branch}/.ui-verify/adversarial/
+    Lessons: <matched ui-verify-lessons bodies, or none>
+    Mode: --driver playwright
+)
+```
+
+The `.aw-tester/node_modules` link from [§ The browser precondition](#the-browser-precondition) is what the probe file's `@playwright/test` import resolves through, so the pass downloads nothing.
+The Chrome categories never apply here — this host has no extension.
+Dispatch [`runner.md § Step 4c`](./runner.md#step-4c-telemetry--telemetry-verify-on-each-window)'s `telemetry-verify` calls as `general` sub-agents the same way, the spec-window call in the same message as this one.
+
+## The out-of-bounds brainstorm dispatches from `author`
+
+On this host a dispatched sub-agent can never dispatch another: OpenCode refuses the Task tool at its default depth of 1 and denies `task` to child sessions, and the automation's configuration changes neither.
+So the brainstorm in [`out-of-bounds.md`](./out-of-bounds.md) runs where `author` runs — the top-level session — and its `fan-out` mode sends five `general` generators in one message, then one `general` judge.
+Each prompt carries everything inline, so no generator reads a file or calls a tool.
+
+When `author` itself runs inside a dispatched `general` sub-agent, the `task` tool is absent: take the `in-context` row, never a probe dispatch.
+Never brainstorm inside the `aw-tester` or adversarial-pass dispatches above; they only execute the specs `author` wrote.
+
+An automation that runs `author` or `verify` has its own run timeout, which defaults to 10 minutes; `fan-out` adds one generator round and one judge to it, and `--brainstorm deep` adds far more.
+
+## Preview auth comes from the automation's secrets
+
+Every credential is read from an environment variable named in `.agents/aw/environments.yml` → `preview.auth` (`refresh.env`, `bypass_header.env`).
+On this host those variables are the automation's `envVars` / secrets — set each one that file names.
+One that is unset makes the authed specs `skipped`, exactly as it does in CI, and the report says which variable was missing.
+
+Setup is interactive: run `/aw-verify setup` locally and commit `.agents/aw/`; this host only reads it.

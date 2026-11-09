@@ -1,0 +1,50 @@
+[
+  {
+    "doc_key": "intro",
+    "title": "1. EasySkillHub 是什么",
+    "section": "开始",
+    "summary": "一句话看懂这个站点：Skill 的资源站。",
+    "file": "01-intro.md",
+    "sort_no": 10
+  },
+  {
+    "doc_key": "usage",
+    "title": "2. 使用指南：找、看、装",
+    "section": "使用",
+    "summary": "怎么在 375 个 Skill 里找到你要的那个，并装到自己的机器上。",
+    "file": "02-usage.md",
+    "sort_no": 20
+  },
+  {
+    "doc_key": "contribute",
+    "title": "3. 贡献指南：把你的 Skill 交上来",
+    "section": "贡献",
+    "summary": "个人与部门两种身份，四步走完从上传到发布。",
+    "file": "03-contribute.md",
+    "sort_no": 30
+  },
+  {
+    "doc_key": "security",
+    "title": "4. 安全评估：32 个指标在看什么",
+    "section": "安全",
+    "summary": "风险分怎么算出来的，四档等级分别意味着什么。",
+    "file": "04-security.md",
+    "sort_no": 40
+  },
+  {
+    "doc_key": "install",
+    "title": "5. 分发与安装：三种把 Skill 送到同事手里的方式",
+    "section": "使用",
+    "summary": "下载 ZIP、复制命令、给源码直链，以及分别适合谁。",
+    "file": "05-install.md",
+    "sort_no": 50
+  },
+  {
+    "doc_key": "glossary",
+    "title": "6. 术语小词典",
+    "section": "参考",
+    "summary": "站内出现的每一个专业词，都有一句人话解释。",
+    "file": "06-glossary.md",
+    "sort_no": 60
+  }
+]

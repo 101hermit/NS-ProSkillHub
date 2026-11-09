@@ -1,0 +1,15 @@
+[
+  {
+    "slug": "retrieval-practice-generator",
+    "prompt": "Using only this passage, create six varied retrieval questions for a beginner: HTTP clients send requests; servers return responses with status codes.",
+    "acceptance": [
+      "Creates six answerable questions at varied difficulty",
+      "Includes feedback or an answer key grounded in the passage",
+      "States the limits of the supplied material"
+    ],
+    "forbidden": [
+      "Adding unsupported protocol details to the answer key",
+      "Treating retrieval practice as a guaranteed learning result"
+    ]
+  }
+]

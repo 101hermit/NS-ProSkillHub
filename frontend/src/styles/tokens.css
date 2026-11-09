@@ -1,0 +1,76 @@
+/* ==========================================================================
+   设计令牌（三系统逐字节一致）
+   规则见 docs/04-统一前端设计系统.md §3
+   —— 改这里等于改三个系统的外观，因此任何改动都必须同步三份并跑 verify-all。
+   ========================================================================== */
+:root {
+  /* 品牌：openEuler 深蓝为锚；三系统同一主色，只用"版本强调色"区分 */
+  --sk-primary: #002fa7;
+  --sk-primary-weak: #e8edfb;
+  --sk-primary-strong: #001f73;
+
+  /* 中性 */
+  --sk-bg: #f6f7fb;
+  --sk-surface: #ffffff;
+  --sk-border: #e4e7ee;
+  --sk-border-2: #cfd4de;
+  --sk-text: #1a1d24;
+  --sk-text-2: #545a67;
+  --sk-text-3: #8a909c;
+
+  /* 语义 */
+  --sk-ok: #16a34a;
+  --sk-warn: #d97706;
+  --sk-danger: #dc2626;
+  --sk-info: #2563eb;
+  --sk-muted: #eef0f5;
+
+  /* 风险四档（与后端 risk_level 一一对应） */
+  --sk-risk-safe: #16a34a;
+  --sk-risk-low: #65a30d;
+  --sk-risk-medium: #d97706;
+  --sk-risk-high: #dc2626;
+  --sk-risk-none: #8a909c;
+
+  /* 版本强调色：各系统在 main.js 里覆盖 --sk-accent */
+  --sk-accent: #0f9d58;
+
+  /* 排版 */
+  --sk-font: "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+  --sk-mono: "Cascadia Code", Consolas, "Courier New", monospace;
+  --sk-fs-xs: 12px;
+  --sk-fs-sm: 13px;
+  --sk-fs: 14px;
+  --sk-fs-md: 16px;
+  --sk-fs-lg: 20px;
+  --sk-fs-xl: 26px;
+  --sk-fs-2xl: 34px;
+  --sk-lh: 1.65;
+
+  /* 间距（4 的倍数） */
+  --sk-s1: 4px;
+  --sk-s2: 8px;
+  --sk-s3: 12px;
+  --sk-s4: 16px;
+  --sk-s5: 20px;
+  --sk-s6: 24px;
+  --sk-s8: 32px;
+  --sk-s10: 40px;
+
+  /* 圆角 / 阴影 / 动效 */
+  --sk-r-sm: 6px;
+  --sk-r: 10px;
+  --sk-r-lg: 14px;
+  --sk-r-pill: 999px;
+  --sk-shadow-1: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.1);
+  --sk-shadow-2: 0 4px 12px rgba(16, 24, 40, 0.08);
+  --sk-shadow-3: 0 12px 32px rgba(16, 24, 40, 0.12);
+  --sk-dur: 160ms;
+  --sk-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+
+  /* 布局 */
+  --sk-header-h: 56px;
+  --sk-sider-w: 208px;
+  --sk-sider-w-collapsed: 56px;
+  --sk-content-max: 1440px;
+}

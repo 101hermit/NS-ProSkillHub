@@ -1,0 +1,123 @@
+# Specs: <Feature Title>
+
+Plan: ../plan.md                   # relative path to the plan that prompted these specs
+Target: local                      # an environment in .agents/aw/environments.yml
+Refactor: no                       # "yes" hints regression intent: assert behaviour unchanged
+
+# ---
+# SPEC FORMAT
+#
+# Each spec describes one user goal from the outside.
+# Specs are NOT implementation tests — they describe what the user observes.
+#
+# This is the GRAMMAR format. A file whose header carries `Format: intent` is
+# the Markdown intent format instead — templates/intent-spec.md.template — and
+# a passing intent spec compiles back to this grammar as its cached route
+# (rules/spec-run-contract.md § 6.6).
+#
+# persist field:
+#   critical-path   — at end of Phase 4 aw-executor hands this spec to the
+#                     e2e-testing skill's Generator to produce a saved *.spec.ts
+#   verify-only     — ephemeral; used to verify this change then discarded
+#
+# url field:
+#   {placeholders} resolve from aw-target.fixtures.references (e.g. {dashboardId})
+#
+# flow field locator descriptors — mini-grammar:
+#
+#   Key-value object in single braces. Keys are identifiers; values are either
+#   double-quoted strings or JS regex literals (/pattern/).
+#
+#   Supported forms:
+#     {role: "button", name: "Save"}           — role + accessible name (preferred)
+#     {role: "button", name: "Save", exact: false}  — partial accessible name
+#     {label: "Email address"}                 — form label
+#     {placeholder: "Search…"}                 — input placeholder
+#     {text: "Submit"}                          — visible text (exact)
+#     {text: /submit/i}                         — visible text (regex)
+#     {testid: "save-draft"}                   — data-testid (escape hatch)
+#
+#   Edge cases:
+#     Comma inside a name:  quote the whole name — {role: "button", name: "Save, continue"}
+#     Regex with comma:     {text: /save, continue/i}  — comma inside /.../ is fine
+#     Multi-word role:      {role: "menu item", name: "Delete"}
+#
+#   Resolver contract: aw-tester maps each form to Playwright's getByRole /
+#   getByLabel / getByPlaceholder / getByText / getByTestId. CSS selectors,
+#   nth-child, and XPath are NEVER valid locator forms.
+#
+#   NO CSS-class or nth-child selectors
+#
+# network assertions:
+#   network: METHOD /path returned NNN
+#   Example: network: POST /api/alerts returned 201
+#
+# semantic assertions:
+#   semantic: <user-observable outcome>
+#   Example: semantic: the user sees an order-confirmation number
+#   A semantic assertion delegates to the jev-assert skill: the runner captures
+#   the page TEXT state (accessibility tree / page text — never a screenshot)
+#   and asks TypeSafe's Jev model whether the outcome holds, then folds the
+#   verify-behavior receipt into the verdict (confirms → pass, contradicts/null
+#   → fail, ambiguous/unobtainable → the spec is inconclusive, never a silent
+#   pass). Use it where an exact locator or string match is brittle. The
+#   expectation must be a user-observable OUTCOME, not a restatement of the page
+#   text — a literal-string or structural check belongs in a {text: ...} or
+#   {role: ...} locator assertion, which verifies it deterministically.
+#
+# CAPTURE steps (documentation screenshots):
+#   A flow step of the form:
+#     - CAPTURE "hero after submit"           — screenshot the current viewport
+#     - CAPTURE "full dashboard" fullPage     — full-page screenshot
+#   A CAPTURE is neither an action nor an assertion: it never resolves a
+#   locator and never changes the verdict. Use it to record a rendered state
+#   for the PR, the walkthrough, or a before/after. The runner writes each to
+#   .agent/{branch}/.aw-tester/captures/<spec-id>-<slug>.png and lists it in
+#   the verdict's captures: array. A capture that cannot be written is a note,
+#   never a failure.
+#
+# continues-from:
+#   Reuse the browser state from a prior spec's end — the prior spec's page,
+#   cookies, and local storage are inherited as the starting state for this spec.
+#   The prior spec must have run in the same aw-tester invocation and must have
+#   passed. If the prior spec was skipped or failed, aw-tester skips this spec
+#   too (reason: "continues-from: Spec N — prior spec did not pass").
+#
+#   IMPORTANT: continues-from is silently broken when the aw-target sets
+#   reset_between_specs: true (each spec starts a fresh context). Do not use
+#   continues-from on targets with reset_between_specs: true.
+# ---
+
+## Spec 1: <one-line user goal for a new feature>
+persist: verify-only
+url: /dashboard/{dashboardId}
+preconditions:
+  - User is logged in as admin (handled by aw-target auth)
+  - Dashboard "{dashboardId}" exists (handled by aw-target seed)
+flow:
+  - WHEN {role: "button", name: "Add Widget"} is clicked
+    THEN {role: "dialog", name: "Add Widget"} is visible
+    AND {role: "listbox", name: "Widget type"} is visible
+  - WHEN {role: "option", name: "Time Series"} is clicked
+    THEN {role: "option", name: "Time Series"} has aria-selected: true
+  - WHEN {role: "button", name: "Add"} is clicked
+    THEN {role: "dialog", name: "Add Widget"} is not visible
+    AND {text: "Time Series"} is visible on the page
+    AND network: POST /api/dashboards/{dashboardId}/widgets returned 201
+    AND semantic: the dashboard now shows a time-series widget the user just added
+  - CAPTURE "dashboard with new time-series widget"
+
+## Spec 2: <one-line user goal — refactor regression check>
+persist: critical-path
+url: /alerts
+preconditions:
+  - User is logged in as admin
+continues-from: Spec 1
+flow:
+  - WHEN page loads
+    THEN {role: "heading", name: "Alerts"} is visible
+    AND {role: "table", name: "Alert list"} is visible
+  - WHEN {role: "button", name: "Create alert"} is clicked
+    THEN {role: "dialog", name: "Create alert"} is visible
+  - WHEN {role: "button", name: "Cancel"} is clicked
+    THEN {role: "dialog", name: "Create alert"} is not visible

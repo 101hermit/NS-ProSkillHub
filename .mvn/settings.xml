@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  本工程自带的 Maven 设置（「拿走即用」）：拷走整个工程目录后，
+  scripts\build.ps1 会自动用 -s .mvn\settings.xml + -Dmaven.repo.local=.m2repo，
+  因此不需要仓库根的任何文件。
+
+  为什么需要它：公司内网出外网必须走代理 proxy.neusoft.com:8080；
+  代理会做 TLS 解密，JVM 必须加载 config\certs\trust-all.p12（JDK CA + 公司根 CA 合集），
+  否则依赖下载一律 SSLHandshakeException / PKIX path building failed。
+  证书与口令由 scripts\build.ps1 自动交给 JVM，用户不需要手工 keytool。
+-->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+  <proxies>
+    <proxy>
+      <id>neusoft-proxy-http</id>
+      <active>true</active>
+      <protocol>http</protocol>
+      <host>proxy.neusoft.com</host>
+      <port>8080</port>
+      <nonProxyHosts>localhost|127.0.0.1|10.*|192.168.*|*.neusoft.com|*.intra|*.corp</nonProxyHosts>
+    </proxy>
+    <proxy>
+      <id>neusoft-proxy-https</id>
+      <active>true</active>
+      <protocol>https</protocol>
+      <host>proxy.neusoft.com</host>
+      <port>8080</port>
+      <nonProxyHosts>localhost|127.0.0.1|10.*|192.168.*|*.neusoft.com|*.intra|*.corp</nonProxyHosts>
+    </proxy>
+  </proxies>
+
+  <mirrors>
+    <mirror>
+      <id>aliyun-public</id>
+      <name>阿里云公共仓库（内网经代理可达）</name>
+      <mirrorOf>central</mirrorOf>
+      <url>https://maven.aliyun.com/repository/public</url>
+    </mirror>
+  </mirrors>
+</settings>

@@ -1,0 +1,149 @@
+{
+  "_comment": "供应商数据库 - 实际使用时请根据实际供应商信息填充，可添加更多字段和记录",
+  "_fields": {
+    "name": "供应商名称",
+    "type": "类型：raw(原料) / packaging(包装)",
+    "category": "细分品类",
+    "address": "详细地址",
+    "contact": {
+      "phone": "固定电话",
+      "mobile": "手机",
+      "email": "邮箱",
+      "website": "官网"
+    },
+    "main_products": "主营产品列表",
+    "region": "所属区域",
+    "city": "城市",
+    "province": "省份"
+  },
+  "suppliers": [
+    {
+      "name": "深圳鸿达包装有限公司",
+      "type": "packaging",
+      "category": "纸箱/彩盒",
+      "address": "深圳市宝安区沙井街道新桥工业园A栋",
+      "contact": {
+        "phone": "0755-27288888",
+        "mobile": "13828889999",
+        "email": "info@hongdapacking.com",
+        "website": "www.hongdapacking.com"
+      },
+      "main_products": ["瓦楞纸箱", "彩盒", "礼品盒", "展示架"],
+      "region": "珠三角",
+      "city": "深圳",
+      "province": "广东"
+    },
+    {
+      "name": "东莞联丰塑料原料有限公司",
+      "type": "raw",
+      "category": "塑料原料",
+      "address": "东莞市樟木头镇塑胶市场三期B区18号",
+      "contact": {
+        "phone": "0769-87716666",
+        "mobile": "13926887777",
+        "email": "sales@lianfengplastic.com",
+        "website": "www.lianfengplastic.com"
+      },
+      "main_products": ["PP颗粒", "PE颗粒", "ABS树脂", "PC塑料"],
+      "region": "珠三角",
+      "city": "东莞",
+      "province": "广东"
+    },
+    {
+      "name": "广州越秀包装材料厂",
+      "type": "packaging",
+      "category": "塑料包装",
+      "address": "广州市花都区新华工业区迎宾大道8号",
+      "contact": {
+        "phone": "020-36882222",
+        "mobile": "13688886666",
+        "email": "service@yuexiupack.com",
+        "website": "www.yuexiupack.com"
+      },
+      "main_products": ["PE袋", "气泡膜", "缠绕膜", "快递袋"],
+      "region": "珠三角",
+      "city": "广州",
+      "province": "广东"
+    },
+    {
+      "name": "佛山南海金属材料有限公司",
+      "type": "raw",
+      "category": "金属材料",
+      "address": "佛山市南海区狮山镇有色金属产业园",
+      "contact": {
+        "phone": "0757-86669999",
+        "mobile": "13798886666",
+        "email": "info@nanhaimetal.com",
+        "website": "www.nanhaimetal.com"
+      },
+      "main_products": ["铝板", "铝卷", "不锈钢板", "镀锌板"],
+      "region": "珠三角",
+      "city": "佛山",
+      "province": "广东"
+    },
+    {
+      "name": "上海嘉定包装印刷厂",
+      "type": "packaging",
+      "category": "标签/印刷",
+      "address": "上海市嘉定区安亭镇宝安公路5888号",
+      "contact": {
+        "phone": "021-59563333",
+        "mobile": "13817775555",
+        "email": "sales@jiadingprint.com",
+        "website": "www.jiadingprint.com"
+      },
+      "main_products": ["不干胶标签", "防伪标签", "说明书", "画册"],
+      "region": "长三角",
+      "city": "上海",
+      "province": "上海"
+    },
+    {
+      "name": "昆山台达塑胶工业有限公司",
+      "type": "raw",
+      "category": "工程塑料",
+      "address": "江苏省昆山市玉山镇高新区台达路1号",
+      "contact": {
+        "phone": "0512-57888888",
+        "mobile": "13962668888",
+        "email": "taida@tdplastic.com.cn",
+        "website": "www.tdplastic.com.cn"
+      },
+      "main_products": ["POM", "PA66", "PC/ABS合金", "PBT"],
+      "region": "长三角",
+      "city": "昆山",
+      "province": "江苏"
+    },
+    {
+      "name": "苏州工业园区纸品包装有限公司",
+      "type": "packaging",
+      "category": "纸制品",
+      "address": "苏州市工业园区唯亭街道星龙街288号",
+      "contact": {
+        "phone": "0512-62998888",
+        "mobile": "13812669999",
+        "email": "info@suzhoupaper.com",
+        "website": "www.suzhoupaper.com"
+      },
+      "main_products": ["纸板", "纸箱", "蜂窝纸板", "纸护角"],
+      "region": "长三角",
+      "city": "苏州",
+      "province": "江苏"
+    },
+    {
+      "name": "成都兴达包装有限公司",
+      "type": "packaging",
+      "category": "综合包装",
+      "address": "成都市新都区工业大道东段128号",
+      "contact": {
+        "phone": "028-83969999",
+        "mobile": "13880887777",
+        "email": "xingdapack@163.com",
+        "website": "www.xingdapack.com"
+      },
+      "main_products": ["纸箱", "木箱", "托盘", "缓冲材料"],
+      "region": "成渝",
+      "city": "成都",
+      "province": "四川"
+    }
+  ]
+}

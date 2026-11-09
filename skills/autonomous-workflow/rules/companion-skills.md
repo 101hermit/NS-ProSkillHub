@@ -1,0 +1,268 @@
+# Companion Skills Registry
+
+Single source of truth for which optional skills the workflow invokes, when, and
+how. **No companion blocks the workflow, and none disappears from the record** —
+each is reported `ran` or `skipped (<reason>)` ([§ The companion report](#the-companion-report)).
+This file is the place to disable, swap, or add companions.
+
+## Contents
+
+- [How invocation works](#how-invocation-works)
+- [The companion report](#the-companion-report)
+- [Registry](#registry)
+- [Agent Companions](#agent-companions)
+- [Self-Improvement Loop (LoreKit)](#self-improvement-loop-lorekit)
+- [Stuck-Loop Protocol (Phase 4)](#stuck-loop-protocol-phase-4)
+- [Parallelization](#parallelization)
+- [Adding a New Companion](#adding-a-new-companion)
+- [Removing a Companion](#removing-a-companion)
+- [Why some skills can't be disabled](#why-some-skills-cant-be-disabled)
+- [Companion Output Logging](#companion-output-logging)
+
+---
+
+## How invocation works
+
+Each phase rule contains lines like:
+
+```
+Skill("ux")     # if companion installed and trigger matches
+```
+
+If the skill isn't installed, the skill tool returns an error; the workflow
+catches that and continues without the skill. **Never block the workflow on a
+missing companion — and never let it vanish from the record either.**
+
+## The companion report
+
+**Every registry row whose phase ran gets exactly one line** — in the
+conversation, in the `plan.md` Progress Log, and repeated under `Companions:` in
+the agent's final message (the planner's handoff, the executor's hand-back):
+
+```text
+companion: <name> — ran
+companion: <name> — skipped (<reason>)
+```
+
+`<reason>` comes from a closed set, so a reader can tell the cases apart:
+
+| Reason | Meaning |
+| --- | --- |
+| `trigger not met: <the condition that failed>` | The companion is installed; its trigger did not match this task. Name the condition — `trigger not met: no new *.test.* file`, not `not needed` |
+| `disabled (<flag>)` | The user opted out — `disabled (--no-interview)` |
+| `not installed` | The skill tool reported it missing |
+| `not dispatchable on this host` | An agent companion whose type the dispatch tool does not list |
+| `tool unavailable: <tool>` | The companion needs a tool this context lacks — `tool unavailable: AskUserQuestion` |
+
+```text
+❌ WRONG — the three reasons a line can be absent look identical in a transcript
+(no line for the tdd provenance check)
+
+✅ RIGHT
+companion: tdd provenance — skipped (trigger not met: no new *.test.* file)
+```
+
+**Why this is mandatory, not courtesy.** Across 39 planning-agent and 48
+`aw-executor` runs in the author's local transcripts (`~/.claude/projects`,
+2026-08-20 → 2026-09-25 — local sessions only, not Agent0 or cloud runs), `Skill("interview")`, `Skill("tdd")`, and
+the provenance guard were each invoked **zero** times, and the
+transcripts could not say why: the contract's headline read *skip silently*, so
+an uninstalled companion, an untriggered one, and one the agent never reached all
+left the same nothing behind. Reading the definitions turned up three concrete
+contributors, each now fixed or made visible:
+
+1. **The provenance check was absent from the executor's own companion
+   table** — the table the executor reads first — and lived only ~630 lines into
+   `phase-4-testing.md`. A run working from the template never met it. The row is
+   now in the template.
+2. **`interview`'s question round runs through `AskUserQuestion`, which
+   a dispatched agent's tool grant does not include.** An agent that decided the
+   companion could not do its job there fell back to the inline gate and said
+   nothing; that decision now has to be written down as
+   `skipped (tool unavailable: AskUserQuestion)` — or the line says `ran`.
+3. **`tdd`'s trigger — "pure logic / business rules" — is a judgement with no
+   stated negative**, so declining it cost nothing and recorded nothing. A
+   `trigger not met: <condition>` line makes that judgement auditable.
+
+These are inferences from the definitions, not from replayed runs; the report
+line is what lets the next measurement confirm or refute them.
+
+---
+
+## Registry
+
+| Skill                | Phase | Trigger condition                                                       | Args                  | Disable by                                                               |
+| -------------------- | ----- | ----------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------ |
+| `interview`          | 0     | Full Mode on demand — two or more `blocking` questions remain after Phase 0 (skip on `--no-interview`, force on `--interview`). SSOT for restate-and-diff + Missing-Information Gate; writes `brief.md` + readiness verdict | —              | Remove invocation in [`phase-0-validation.md`](./phase-0-validation.md#step-3a-scope-alignment) |
+| `critical`           | 1     | Opt-in only — user passed `--critical` to the workflow. Single adversarial pre-mortem pass before brief validation; advisory, does not gate. | `plan` | Remove invocation in [`phase-1-planning.md`](./phase-1-planning.md#adversarial-pre-mortem) |
+| `lorekit-memory`     | 1     | Always — load accumulated workflow lessons before design (fast tier of the self-improvement loop) | `memory.list loop::aw-lessons`     | Remove invocation in [`phase-1-planning.md`](./phase-1-planning.md#lessons-read) |
+| `aw-create-plan`     | 2     | Full Mode only                                                          | —                     | Switch task to Lite Mode                                                 |
+| `lorekit-memory`     | 3     | Executor entry — only when `plan.md` has no `## Lessons applied` (no-planner paths: Lite Mode, `fix-bug` fast-lane, direct dispatch) | `memory.list loop::aw-lessons` | Remove invocation in [`phase-3-implementation.md`](./phase-3-implementation.md#lessons-read) |
+| `tdd`                | 3     | Pure logic / business rules / "test-driven" requested                   | —                     | Remove invocation in [`phase-3-implementation.md`](./phase-3-implementation.md#tdd-trigger) |
+| `ux`                 | 3     | Files touched include `*.tsx`, `*.jsx`, `*.vue`, `*.svelte`, RN screens | —                     | Remove invocation in [`phase-3-implementation.md`](./phase-3-implementation.md#ux-trigger)  |
+| `measurable` | 3 | Matches a `web`/`mobile`/`api`/`worker` pattern in the skill's own `rules/scope-detection.md` (single source of truth for the pattern list — not restated here) | `implement`           | Remove invocation in [`phase-3-implementation.md`](./phase-3-implementation.md#observability-trigger) |
+| `confidence`         | 4     | At iteration cap on same failing area (3 in Lite Mode, 5 in Full Mode) — automatic | `analysis`        | Adjust cap or threshold in [`phase-4-testing.md`](./phase-4-testing.md#stuck-loop-detection) |
+| `tdd` (provenance) | 4  | After Step 5 — any new `*.test.*` / `*.unit.*` / `*.spec.*` file written or extended | `provenance --base $(git merge-base HEAD main)` — the fix is **gated by `confidence(code) ≥ 90 %`**; below it, the finding is reported and the stuck-loop protocol takes over | Remove invocation in [`phase-4-testing.md`](./phase-4-testing.md#test-provenance-trigger) |
+| `measurable` | 4 | Before Step 6 Final Validation — read-only audit of Phase 3's telemetry. **Advisory by default** (findings reported, never block); pass `--strict` (opt-in, e.g. `aw --observability-strict`) to make `missing` findings on `web`/`mobile`/`api`/`worker` paths block like a failing test. `unlinked` findings never block, `--strict` or not | `audit --diff --base $(git merge-base HEAD main) [--strict]` | Remove invocation in [`phase-4-testing.md`](./phase-4-testing.md#observability-gate) |
+| `lorekit-memory`     | 4     | At stuck-loop escalation (cap hit / user escalation) — record the failing area and resolution | `memory.write loop::aw-lessons` | Remove invocation in [`phase-4-testing.md`](./phase-4-testing.md#lessons-write) |
+| `docs`               | 5     | Always (self-improving doc loop — keeps `CLAUDE.md`, `README.md`, `docs/` aligned) | `update --auto`      | Remove invocation in [`phase-5-documentation.md`](./phase-5-documentation.md#documentation-trigger). Skip per-task by user override or skip-condition match (see [`phase-5-documentation.md#when-to-skip`](./phase-5-documentation.md#when-to-skip)). |
+| `aw-create-walkthrough` | 6  | Full Mode only                                                          | —                     | Switch task to Lite Mode                                                 |
+| `create-pr`          | 6     | Always, with the tier's flags from [`aw` § Review](../aw/SKILL.md#review) (description + local review-loop on Lite + push + open draft PR + watch) | —                     | Remove invocation in [`phase-6-pr-creation.md`](./phase-6-pr-creation.md#pr-creation) (replace with manual `gh pr create`) |
+| `aw-verify`       | 4     | Lite Phase 4 and Full Step 4.1 — diff touches UI files AND `.agents/aw/environments.yml` exists; never Micro | `run local --no-push --no-comment --foreign-stack abort` | No config → `verify run: not configured` under `Degraded:` and `run /aw-verify setup` under `Needs you:` |
+| `aw-verify`       | 6     | After `create-pr` returns a PR URL, when `aw-verify` ran in Phase 4 / Step 4.1 | `report <pr-url>` | Runs only when Phase 4 ran `aw-verify` |
+| `ui-verify`       | 6     | Via `create-pr` Step 6.4 on a UI diff — injects the PR-body verification spec; seeds from the planner's `.agent/{branch}/specs.md` when present | `author` | Pass `--no-ui-verify` to `create-pr` — see [`phase-6-pr-creation.md`](./phase-6-pr-creation.md#ui-verify) |
+| `ci-auto-fix`        | 7     | CI run completes with status `failure`                                  | `<run-id\|pr-url>`    | Skip Phase 7 entirely — remove invocation in [`phase-7-ci-gate.md`](./phase-7-ci-gate.md#auto-fix) |
+| `measurable`         | 7     | Once, after Auto Fix settles — only if Phase 3's Observability Trigger matched. Recheck against the current head: `ci-auto-fix`/`review-loop` can mutate code after the Phase 4 gate ran and silently strip telemetry it confirmed. Advisory by default; under `--observability-strict`, a *newly-introduced* `missing` finding is fixed once and re-checked before escalating — never a second stuck-loop | `audit --diff --base $(git merge-base HEAD main) [--strict]` | Remove invocation in [`phase-7-ci-gate.md`](./phase-7-ci-gate.md#observability-recheck) |
+| `lorekit-memory`     | 7     | End-of-run (CI green / user stop / post-merge bug) — record durable run lessons; check promotion | `memory.write loop::aw-lessons` | Remove invocation in [`phase-7-ci-gate.md`](./phase-7-ci-gate.md#lessons-write) |
+
+---
+
+## Agent Companions
+
+A second class of optional companions exists: **agents** (definitions in `agents/<name>.md`) rather than skills. They are dispatched as sub-agents (`subagent_type: <name>`) and detected by **capability** — the dispatch tool accepts `<name>` as an agent type — never by a file at an install path, which misses plugin-installed, project-local, and hosted agents alike. An agent that cannot be dispatched is reported by name — `companion: <name> — skipped (not dispatchable on this host)` — never skipped silently.
+
+| Agent      | Phase | Trigger condition                                            | Args                                          | Detection paths                                                                                  | Disable by                                                                                       |
+| ---------- | ----- | ------------------------------------------------------------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `feature-pr-verifier` | PR open (dispatched by `aw`, not by a phase) | Full Mode AND `plan.md` exists AND the executor returned a PR URL (independent green/red verdict; a done-condition via `aw`'s `Verified:` line) | — | The dispatch tool accepts `feature-pr-verifier` as an agent type | Remove § *Verify at PR open* in the `aw` dispatcher skill |
+
+The run's one review pass is `review-loop` in local mode, before the push (`create-pr` Step 5.5, or Full's Step 3); it posts nothing.
+With `--pr-review`, `create-pr` Step 6.5 adds one posted `review-loop` on the draft; Phase 7 runs no review — [`aw` § Review](../aw/SKILL.md#review).
+Both keep the graceful-skip contract — log one line and continue if `review-loop` is absent.
+
+The `feature-pr-verifier` agent runs in fresh context with no access to the planner's or executor's reasoning — only `plan.md`, `walkthrough.md`, the PR diff, and the project test command. It returns a green / red verdict against the four checks (Acceptance-Criteria match, PASS_TO_PASS, diff sanity, walkthrough integrity). The verdict is advisory: only the user undrafts the PR. It closes the self-grading loophole Anthropic's harness research warns about.
+
+---
+
+## Self-Improvement Loop (LoreKit)
+
+LoreKit (the `memory.*` MCP tools, surfaced by the `lorekit-memory` skill) is
+wired in at three points to give the workflow a **fast tier** of
+self-improvement: it reads accumulated `loop::aw-lessons` lessons before
+planning (Phase 1) and writes new lessons when something goes wrong (Phase 4
+stuck-loop) or a run completes (Phase 7). Lessons are **advisory** — they bias
+the plan, never silently change a gate. A lesson that recurs (`seen_count >= 3`)
+or is tagged `structural` becomes promotion-eligible: the workflow suggests
+`/create-skill diagnose autonomous-workflow`, which turns the lesson into a
+permanent skill-source change behind the existing `confidence(analysis) ≥ 90 %`
+gate (the **slow tier**).
+
+The full contract — lesson schema, scope mapping (`global` / `repo::`), read /
+write triggers, promotion gate, and the entrenchment guards that stop
+self-reinforcing error — lives in
+[`self-improvement-loop.md`](./self-improvement-loop.md). Like every companion,
+the LoreKit fast tier **never blocks**: when the `memory.*` tools are not
+connected it reports `companion: lorekit-memory — skipped (tool unavailable: memory.*)`
+and does nothing else; the slow tier (`diagnose`) is unaffected.
+
+---
+
+## Stuck-Loop Protocol (Phase 4)
+
+The single biggest cost-saver in the workflow — prevents the agent from
+burning tokens on hallucinated fixes when root-cause analysis is wrong.
+
+The cap is **mode-aware**: 3 iterations for Lite Mode, 5 for Full Mode. When the
+cap is hit, an **auto-replan protocol** fires — confidence gate first, then
+a conditional execution-path re-trace + plan.md regeneration, with a one-shot guard
+that prevents infinite recovery loops. User escalation is the final, mandatory
+step if recovery fails.
+
+```
+iteration_cap = 3 if Lite Mode else 5
+iterations_on_same_area = 0
+auto_replan_used = False
+
+# Per-iteration lightweight self-check (NOT a full confidence call — too token-expensive)
+before each iteration N >= 2:
+    self-check: "Is this attempt meaningfully different from N-1?"
+    self-check: "Have I considered why the previous fix didn't work?"
+    if either answer is "no":
+        bias toward replanning — skip ahead to cap-hit branch below
+
+while not all_tests_pass:
+    iterations_on_same_area += 1
+
+    if iterations_on_same_area == iteration_cap:
+        score = Skill("confidence", "analysis")
+
+        if score < 90% and not auto_replan_used:
+            re_trace()   # entry → exit; re-state the root cause (phase-4-testing.md)
+            Update affected sections of plan.md.
+            iterations_on_same_area = 0
+            auto_replan_used = True
+            continue   # resume Phase 4 ONCE more
+
+        # Either score >= 90%, or auto-replan already used — escalate.
+        Present findings + summary of attempts to user.
+        Ask: continue / try different approach / stop.
+        Exit loop based on user response.
+
+    fix → run tests → if pass: break
+```
+
+The re-trace runs **automatically** when confidence is below 90% at the
+cap. It also runs again **on user request** if the user picks
+`try different approach` from the mandatory escalation menu. The
+`auto_replan_used` flag is the one-shot guard — without it, repeated
+`analysis → re-trace → replan → fail` cycles could loop indefinitely.
+
+**Why mode-aware caps (3 vs 5)?** Lite Mode tasks are simpler and should
+converge fast — a tight cap is correct. Full Mode tasks are more complex and
+may benefit from one extra attempt before mandatory escalation. Either way,
+"more than the cap" almost always means the mental model is wrong, which is
+why the auto-replan fires before more iterations are spent.
+
+---
+
+## Parallelization
+
+| Phase | Pattern                                         | Cap                          |
+| ----- | ----------------------------------------------- | ---------------------------- |
+| 1     | Parallel `Explore` sub-agents for research      | One per package/concern      |
+| 3     | Controlled fan-out — file-disjoint slices only  | 3 concurrent sub-agents      |
+| 7     | Parallel `ci-auto-fix` per independent failure  | 2 handoffs per PR            |
+
+Phase 3 allows controlled fan-out when slices are file-disjoint (cap 3 concurrent sub-agents).
+Each sub-agent MUST receive the Sub-Agent Resource Discipline embedding.
+If the task does not decompose cleanly into file-disjoint slices, keep Phase 3 sequential.
+See [`rules/parallel-coordination.md#sub-agent-resource-discipline`](./parallel-coordination.md#sub-agent-resource-discipline).
+
+---
+
+## Adding a New Companion
+
+1. Confirm the companion skill exists in `agent-skills.git/skills/<name>/`.
+2. Add a row to the Registry table above.
+3. Add the invocation in the relevant `phase-N-*.md` rule. The rule must
+   include an `## Anchor` heading matching the "Disable by" link target.
+4. Document the trigger condition concretely (file globs, keyword match,
+   counts) — avoid subjective conditions.
+5. Verify the workflow still skips gracefully when the new companion is missing.
+
+## Removing a Companion
+
+1. Delete the row from the Registry table.
+2. Delete the invocation block in the relevant phase rule.
+3. (Optional) Note the removal in the project's `CHANGELOG.md` so users know.
+
+---
+
+## Why some skills can't be disabled
+
+Every companion can be disabled.
+The Full tier's gates are not companions: the deterministic [brief validation](./phase-1-planning.md#brief-validation) and the sealed `run-checks.mjs` gate ([`phase-4-testing.md`](./phase-4-testing.md#executable-checks-loop)) always run.
+
+---
+
+## Companion Output Logging
+
+When a companion is invoked, append a one-liner to the `plan.md` Progress Log
+(Full Mode only):
+
+```markdown
+- [2026-04-29T15:30:00Z] Phase 1: critical(plan) — applied (2 must-fixes addressed, steelman recorded)
+- [2026-04-29T15:32:00Z] Phase 1: brief validation — passed (6 Core headings, 7 ACs = 7 checks, sealed)
+```
+
+This makes the companion footprint visible across phases and helps tune which
+companions are worth running for which task types.

@@ -1,0 +1,15 @@
+[
+  {
+    "slug": "study-strategy-selector",
+    "prompt": "I have four evenings to learn a mix of terminology and worked statistics problems. Suggest a realistic study strategy.",
+    "acceptance": [
+      "Combines retrieval, spacing, and worked practice appropriately",
+      "Adapts the plan to the stated time and mixed material",
+      "Uses calibrated rather than absolute evidence claims"
+    ],
+    "forbidden": [
+      "Claiming one technique always works for everyone",
+      "Inventing constraints or a diagnosis about the learner"
+    ]
+  }
+]

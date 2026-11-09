@@ -1,0 +1,309 @@
+{
+  "version": "1.0",
+  "description": "Skill 安全评估指标（对齐 NVIDIA SkillSpector 的规则族与 openEuler SkillHub 的评估口径）",
+  "categories": [
+    { "key": "prompt", "name": "提示注入", "desc": "指令覆盖、隐藏指令、上下文填充等提示词攻击手法" },
+    { "key": "exfiltration", "name": "数据外泄", "desc": "凭据/环境变量/配置读取与向外部地址传输数据" },
+    { "key": "privilege", "name": "权限与代码执行", "desc": "提权、子进程与 shell 执行、不安全默认参数、无约束工具" },
+    { "key": "supply-chain", "name": "供应链风险", "desc": "依赖未锁版本、远程下载执行、已知 CVE、恶意样本特征" },
+    { "key": "prompt-leak", "name": "系统提示与记忆", "desc": "系统提示泄露、记忆投毒、输出未校验" },
+    { "key": "dangerous-code", "name": "危险代码", "desc": "自我修改、持久化、破坏性命令等高危行为" }
+  ],
+  "severities": [
+    { "key": "CRITICAL", "label": "严重", "weight": 40 },
+    { "key": "HIGH", "label": "高", "weight": 26 },
+    { "key": "MEDIUM", "label": "中", "weight": 14 },
+    { "key": "LOW", "label": "低", "weight": 6 }
+  ],
+  "indicators": [
+    {
+      "id": "P1",
+      "name": "试图覆盖系统指令",
+      "category": "prompt",
+      "severity": "HIGH",
+      "weight": 28,
+      "pattern": "(?i)(ignore\\s+(all\\s+)?(previous|prior|above)\\s+(instructions|prompts)|disregard\\s+(the\\s+)?(system|safety)|忽略(之前|以上|系统)的?(指令|提示))",
+      "remediation": "删除要求模型忽略既有指令的表述，把限制写成显式的使用边界。"
+    },
+    {
+      "id": "P2",
+      "name": "隐藏指令",
+      "category": "prompt",
+      "severity": "HIGH",
+      "weight": 24,
+      "pattern": "(?i)(<!--[\\s\\S]{0,240}(ignore|execute|run|system)|[\\u200b\\u200c\\u200d\\u2060\\ufeff])",
+      "remediation": "移除注释或不可见字符中的指令性内容，让所有行为写在正文里。"
+    },
+    {
+      "id": "P4",
+      "name": "隐性指令",
+      "category": "prompt",
+      "severity": "MEDIUM",
+      "weight": 18,
+      "pattern": "(?i)(do\\s+not\\s+(tell|inform)\\s+the\\s+user|不要(告诉|告知)用户|secretly\\s+run|静默执行)",
+      "remediation": "任何会改变用户预期的操作都应显式提示，不要要求隐瞒。"
+    },
+    {
+      "id": "MP1",
+      "name": "记忆投毒",
+      "category": "prompt-leak",
+      "severity": "MEDIUM",
+      "weight": 20,
+      "pattern": "(?i)(append\\s+to\\s+(memory|claude\\.md|agents\\.md)|写入(长期)?记忆|持久化到\\s*CLAUDE)",
+      "remediation": "不要自动改写 Agent 的长期记忆或全局配置，改为在会话内提供建议。"
+    },
+    {
+      "id": "MP2",
+      "name": "上下文填充",
+      "category": "prompt",
+      "severity": "MEDIUM",
+      "weight": 14,
+      "pattern": "(?i)(repeat\\s+(the\\s+following|this)\\s+(text|line)\\s+\\d{3,}|填充.{0,10}上下文)",
+      "remediation": "避免用大量填充内容挤占上下文窗口。"
+    },
+    {
+      "id": "P6",
+      "name": "系统提示泄露",
+      "category": "prompt-leak",
+      "severity": "HIGH",
+      "weight": 30,
+      "pattern": "(?i)(print|output|dump|reveal)[\\s\\S]{0,40}(system\\s+prompt|system\\s+message|内部规则|隐藏指令)",
+      "remediation": "不要要求模型输出系统提示或内部规则。"
+    },
+    {
+      "id": "E1",
+      "name": "向外部地址发送数据",
+      "category": "exfiltration",
+      "severity": "MEDIUM",
+      "weight": 16,
+      "pattern": "(?i)(curl|wget|requests\\.(post|put)|http\\.request)[\\s\\S]{0,160}https?://(?!localhost|127\\.0\\.0\\.1)[a-z0-9.-]+",
+      "remediation": "明确数据外发的目的域名，并在文档里披露；涉及隐私数据时应默认关闭。"
+    },
+    {
+      "id": "E2",
+      "name": "读取疑似密钥的环境变量",
+      "category": "exfiltration",
+      "severity": "HIGH",
+      "weight": 26,
+      "pattern": "(?i)(process\\.env\\[?[^\\]]{0,40}|os\\.environ\\[?[^\\]]{0,40}|printenv|System\\.getenv\\(?)[^\\n]{0,40}(TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL)",
+      "remediation": "只读取完成任务必需的环境变量，且不要打印或外传其值。"
+    },
+    {
+      "id": "PE3",
+      "name": "读取凭据文件",
+      "category": "exfiltration",
+      "severity": "HIGH",
+      "weight": 26,
+      "pattern": "(?i)(\\.ssh/|id_rsa|\\.aws/credentials|\\.netrc|\\.npmrc|\\.git-credentials|credentials\\.json)",
+      "remediation": "删除对凭据路径的引用；确需示例时用 /path/to/config 形式的占位符。"
+    },
+    {
+      "id": "AS1",
+      "name": "访问 Agent 配置目录",
+      "category": "exfiltration",
+      "severity": "HIGH",
+      "weight": 22,
+      "pattern": "(?i)(\\.claude/|\\.codex/|\\.gemini/|\\.cursor/|\\.qwen/)",
+      "remediation": "技能不应读取 Agent 自身的配置目录（可能含密钥与历史记录）。"
+    },
+    {
+      "id": "AS2",
+      "name": "访问 MCP 配置",
+      "category": "exfiltration",
+      "severity": "HIGH",
+      "weight": 20,
+      "pattern": "(?i)(mcp\\.json|\\bmcpServers\\b)",
+      "remediation": "MCP 配置含服务地址与令牌，除非必要不要读取。"
+    },
+    {
+      "id": "AS3",
+      "name": "枚举其它已安装 Skill",
+      "category": "exfiltration",
+      "severity": "MEDIUM",
+      "weight": 14,
+      "pattern": "(?i)(ls\\s+~/?\\.claude/skills|find\\s+~/?\\.claude/skills|readdir[\\s\\S]{0,40}skills)",
+      "remediation": "技能不应扫描其它 Skill 的目录、配置与历史记录。"
+    },
+    {
+      "id": "PE2",
+      "name": "使用 sudo / root 权限",
+      "category": "privilege",
+      "severity": "MEDIUM",
+      "weight": 14,
+      "pattern": "(?i)(^|[;&|(]\\s*)sudo\\s",
+      "remediation": "确认确实需要提权；可在文档中说明最小权限要求。"
+    },
+    {
+      "id": "AST4",
+      "name": "子进程执行外部命令",
+      "category": "privilege",
+      "severity": "MEDIUM",
+      "weight": 16,
+      "pattern": "(?i)(subprocess\\.(run|Popen|call|check_output)|child_process\\.(exec|execSync|spawn)|Runtime\\.getRuntime\\(\\)\\.exec)",
+      "remediation": "对外部命令参数做白名单校验，避免把用户输入直接拼进命令。"
+    },
+    {
+      "id": "AST5",
+      "name": "shell 直接执行",
+      "category": "privilege",
+      "severity": "HIGH",
+      "weight": 22,
+      "pattern": "(?i)(os\\.system\\(|\\beval\\(|\\bexec\\(|(ba)?sh\\s+-c|powershell(\\.exe)?\\s+-c)",
+      "remediation": "用结构化调用替代 shell 字符串拼接，并对输入做校验。"
+    },
+    {
+      "id": "TM1",
+      "name": "不安全的工具参数",
+      "category": "privilege",
+      "severity": "MEDIUM",
+      "weight": 12,
+      "pattern": "(?i)(shell\\s*=\\s*True|shell\\s*:\\s*true)",
+      "remediation": "关闭 shell=True，改用参数数组传递。"
+    },
+    {
+      "id": "TM3",
+      "name": "不安全的默认配置",
+      "category": "privilege",
+      "severity": "MEDIUM",
+      "weight": 14,
+      "pattern": "(?i)(verify\\s*=\\s*False|rejectUnauthorized\\s*:\\s*false|chmod\\s+(777|o\\+rw)|NODE_TLS_REJECT_UNAUTHORIZED\\s*=\\s*0)",
+      "remediation": "恢复 TLS 校验与最小文件权限，确需放宽时在文档中说明。"
+    },
+    {
+      "id": "TM2",
+      "name": "工具调用链绕过检查",
+      "category": "privilege",
+      "severity": "LOW",
+      "weight": 10,
+      "pattern": "(?i)(&&\\s*(curl|wget|npm|pip)\\b[\\s\\S]{0,120}&&\\s*(curl|wget|npm|pip)\\b)",
+      "remediation": "把复合命令拆开执行，避免链路绕过单点检查。"
+    },
+    {
+      "id": "EA1",
+      "name": "无约束的工具授权",
+      "category": "privilege",
+      "severity": "MEDIUM",
+      "weight": 12,
+      "pattern": "(?i)(allowed-tools\\s*:\\s*\\*|allowed_tools\\s*:\\s*\\*|tools\\s*:\\s*\\*)",
+      "remediation": "只声明技能真正需要的工具（最小权限）。"
+    },
+    {
+      "id": "EA2",
+      "name": "高风险自动决策",
+      "category": "privilege",
+      "severity": "HIGH",
+      "weight": 24,
+      "pattern": "(?i)(rm\\s+-rf\\s+/|drop\\s+(table|database)|truncate\\s+table|format\\s+c:)",
+      "remediation": "破坏性操作必须要求人工确认，或在文档里注明适用边界。"
+    },
+    {
+      "id": "EA3",
+      "name": "能力超出声明范围",
+      "category": "privilege",
+      "severity": "LOW",
+      "weight": 8,
+      "pattern": "(?i)(npm\\s+publish|docker\\s+push|kubectl\\s+(apply|delete)|terraform\\s+apply)",
+      "remediation": "把技能的能力边界写清楚，超出部分应拆成独立技能。"
+    },
+    {
+      "id": "EA4",
+      "name": "无上限资源消耗",
+      "category": "privilege",
+      "severity": "MEDIUM",
+      "weight": 12,
+      "pattern": "(?i)(while\\s*\\(\\s*true\\s*\\)|for\\s*\\(\\s*;\\s*;\\s*\\)|retry[\\s\\S]{0,40}(infinite|forever))",
+      "remediation": "为循环、重试与资源用量加上上限。"
+    },
+    {
+      "id": "RA1",
+      "name": "运行时自我修改",
+      "category": "dangerous-code",
+      "severity": "HIGH",
+      "weight": 24,
+      "pattern": "(?i)(git\\s+reset\\s+--hard|sed\\s+-i[\\s\\S]{0,60}(SKILL\\.md|\\.claude)|git\\s+checkout\\s+--\\s+\\.)",
+      "remediation": "技能不应在运行时改写自身或 Agent 配置。"
+    },
+    {
+      "id": "RA2",
+      "name": "建立持久化驻留",
+      "category": "dangerous-code",
+      "severity": "HIGH",
+      "weight": 22,
+      "pattern": "(?i)(crontab\\s+(-e|-l)|@reboot|systemctl\\s+enable|schtasks\\s+/create|Startup\\s+folder)",
+      "remediation": "不要在技能里安装定时任务或开机自启。"
+    },
+    {
+      "id": "OH1",
+      "name": "模型输出未校验",
+      "category": "prompt-leak",
+      "severity": "HIGH",
+      "weight": 22,
+      "pattern": "(?i)(eval\\([\\s\\S]{0,40}(response|output|completion)|exec\\([\\s\\S]{0,40}(response|output))",
+      "remediation": "模型输出必须校验或转义后再交给执行类接口。"
+    },
+    {
+      "id": "OH2",
+      "name": "未校验输出拼进 SQL / 命令",
+      "category": "prompt-leak",
+      "severity": "HIGH",
+      "weight": 20,
+      "pattern": "(?i)(execute\\([\\s\\S]{0,40}(f\"|format\\(|\\s\\+)|execSync\\([\\s\\S]{0,40}\\+)",
+      "remediation": "对外部输入与模型输出做参数化或转义，禁止字符串拼接后执行。"
+    },
+    {
+      "id": "SC1",
+      "name": "依赖未锁版本",
+      "category": "supply-chain",
+      "severity": "LOW",
+      "weight": 8,
+      "pattern": "(?i)\"[a-z@][\\w@/.-]*\"\\s*:\\s*\"(\\^|~|latest|\\*)\"?",
+      "remediation": "锁定依赖版本（精确版本号或 lock 文件），避免被投毒更新。"
+    },
+    {
+      "id": "SC2",
+      "name": "远程下载并执行",
+      "category": "supply-chain",
+      "severity": "CRITICAL",
+      "weight": 34,
+      "pattern": "(?i)(curl[^|\\n]{0,120}\\|\\s*(ba)?sh|wget[^|\\n]{0,120}\\|\\s*(ba)?sh|iwr[^|\\n]{0,60}\\|\\s*iex|Invoke-Expression)",
+      "remediation": "改为下载校验哈希后执行，或直接引用受信任的包管理器。"
+    },
+    {
+      "id": "SC4",
+      "name": "依赖存在已知漏洞",
+      "category": "supply-chain",
+      "severity": "HIGH",
+      "weight": 26,
+      "pattern": "(?i)(lodash\\s*[\"']?[\\s:]*4\\.17\\.[0-9]|axios\\s*[\"']?[\\s:]*[01]\\.[0-9]\\.[0-9]|minimist\\s*[\"']?[\\s:]*1\\.2\\.[0-5])",
+      "remediation": "升级到已修复版本，并用 OSV/CVE 数据复核。"
+    },
+    {
+      "id": "YR1",
+      "name": "恶意样本特征",
+      "category": "supply-chain",
+      "severity": "CRITICAL",
+      "weight": 36,
+      "pattern": "(?i)(reverse\\s+shell|nc\\s+-e\\s+/bin/(ba)?sh|meterpreter|mimikatz|ransomware)",
+      "remediation": "删除恶意/攻击性代码，技能只做声明范围内的事。"
+    },
+    {
+      "id": "YR4",
+      "name": "攻击工具特征",
+      "category": "supply-chain",
+      "severity": "HIGH",
+      "weight": 26,
+      "pattern": "(?i)(sqlmap|nmap\\s+-s|hydra\\s+-|john\\s+--wordlist|hashcat)",
+      "remediation": "移除渗透/爆破类工具调用，除非技能本身就是安全测试且明确声明。"
+    },
+    {
+      "id": "LP3",
+      "name": "未声明权限范围",
+      "category": "prompt-leak",
+      "severity": "MEDIUM",
+      "weight": 12,
+      "pattern": null,
+      "structural": "no-permissions-declared",
+      "remediation": "在 SKILL.md 中显式声明所需权限与工具（minimal permissions）。"
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+# =============================================================================
+# ProSkillHub 1.0 (PSKH) · 应用配置
+# 规范见 docs/05-运行环境与网络接入规范.md
+# =============================================================================
+server:
+  port: ${SERVER_PORT:30802}
+  shutdown: graceful
+  compression:
+    enabled: true
+    mime-types: application/json,text/html,text/css,application/javascript,text/markdown
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+spring:
+  application:
+    name: pskh-app
+  # ---------------------------------------------------------------------------
+  # 默认 H2 文件库：零安装即可运行。
+  # 不要加 AUTO_SERVER=TRUE（与文件锁冲突，单机不需要）。
+  # 生产用 MySQL：SPRING_PROFILES_ACTIVE=mysql
+  # ---------------------------------------------------------------------------
+  datasource:
+    url: jdbc:h2:file:./data/db/pskh;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+    hikari:
+      maximum-pool-size: 8
+      minimum-idle: 2
+      pool-name: pskh-pool
+  sql:
+    init:
+      # 建表由 DatabaseBootstrap 显式执行（需要先判方言、再幂等执行）
+      mode: never
+  servlet:
+    multipart:
+      max-file-size: 64MB
+      max-request-size: 96MB
+  mvc:
+    throw-exception-if-no-handler-found: false
+  web:
+    resources:
+      add-mappings: true
+
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+    default-fetch-size: 200
+    # H2/MySQL 都把 NULL 当 null，不特殊处理；这里只关闭缓存以方便本地改 SQL 后立即生效
+    cache-enabled: false
+
+skillhub:
+  product: PSKH
+  product-name: ProSkillHub
+  abbr: PSKH
+  version: "1.0"
+  site-name: ProSkillHub · Skill 专业平台
+  tagline: 多功能模式 —— 多智能体 × 多 MCP × 多场景的实测与评估，加上知识级分析
+  port: ${SERVER_PORT:30802}
+  accent: "#d97706"
+  library:
+    # Skill 库根目录（含 catalog.json 与各 Skill 子目录）
+    dir: ${SKHUB_LIBRARY_DIR:./skills}
+  upload:
+    dir: ${SKHUB_UPLOAD_DIR:./data/uploads}
+    max-bundle-bytes: 33554432
+  eval:
+    # 标准版做在线实测（Agent + MCP），因此打开这一项
+    live-enabled: true
+    timeout-ms: 90000
+
+  # ---------------------------------------------------------------------------
+  # 出网（NetEgress）：站内所有「外部调用」共用这条出口 —— Agent 探活/调用、MCP 探活/调用。
+  # 内网两个典型症状：
+  #   直连外部 443      → SSLHandshakeException: Remote host terminated the handshake
+  #   走代理但缺根 CA   → PKIX path building failed
+  # 本工程已在仓库根 config/certs/ 放好公司根证书，NetEgress 会在启动时动态加载。
+  # ---------------------------------------------------------------------------
+  net:
+    proxy: ${SKHUB_NET_PROXY:}
+    no-proxy:
+      - localhost
+      - 127.0.0.1
+      - ::1
+      - .neusoft.com
+      - .intra
+      - .corp
+    ca-bundle: ${SKHUB_CA_BUNDLE:}
+    connect-timeout-ms: 8000
+
+logging:
+  level:
+    root: INFO
+    org.skillhub: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level [%X{traceId:--}] %logger{28} - %msg%n"
+
+---
+# =============================================================================
+# MySQL 8 profile
+#   SPRING_PROFILES_ACTIVE=mysql
+#   DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD
+# 建库（库名 eskh 时）：
+#   CREATE DATABASE eskh DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+# =============================================================================
+spring:
+  config:
+    activate:
+      on-profile: mysql
+  datasource:
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:pskh}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false&rewriteBatchedStatements=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${DB_USER:skhub}
+    password: ${DB_PASSWORD:skhub}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      pool-name: pskh-mysql-pool

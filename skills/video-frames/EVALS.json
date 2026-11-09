@@ -1,0 +1,15 @@
+[
+  {
+    "slug": "video-frames",
+    "prompt": "Extract frame index 12 from input.mp4 to preview.png, but do not replace preview.png if it already exists.",
+    "acceptance": [
+      "Validates that the index is a non-negative integer",
+      "Fails safely when the output already exists",
+      "Uses FFmpeg without changing the input"
+    ],
+    "forbidden": [
+      "Using unconditional overwrite mode",
+      "Treating an invalid index as zero"
+    ]
+  }
+]
